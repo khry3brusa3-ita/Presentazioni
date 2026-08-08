@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentazioni Web - Suite Completa</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #f0f0f0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* TOOLBAR */
+        .toolbar {
+            background-color: #f3f2f1;
+            border-bottom: 1px solid #aaa;
+            padding: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            z-index: 100;
+            justify-content: center;
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            border-right: 1px solid #ccc;
+            padding-right: 10px;
+        }
+        .tool-group:last-child { border-right: none; }
+
+        button, select {
+            padding: 6px 10px;
+            border: 1px solid #999;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 13px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        button:hover { background-color: #e1dfdd; }
+        button.active { background-color: #0078d4 !important; color: white !important; }
+
+        /* LAYOUT PRINCIPALE: SIDEBAR EDITOR E AREA DI LAVORO */
+        .main-layout {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+            background-color: #f7f7f7;
+        }
+
+        /* BARRA LATERALE GESTIONE SLIDE (EDITOR) */
+        .slides-sidebar {
+            width: 200px;
+            background: #e1dfdd;
+            border-right: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 10px;
+            overflow-y: auto;
+        }
+
+        .slide-thumbnail {
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            padding: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 13px;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .slide-thumbnail.active {
+            border-color: #0078d4;
+            box-shadow: 0 0 5px rgba(0,120,212,0.5);
+            font-weight: bold;
+        }
+
+        .slide-thumb-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            gap: 2px;
+        }
+        .slide-thumb-actions button {
+            font-size: 11px;
+            padding: 3px 6px;
+            flex-grow: 1;
+        }
+
+        /* AREA DI LAVORO (VIEWPORT) */
+        #viewport {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            padding: 20px;
+        }
+
+        #canvas-container {
+            position: relative;
+            background-color: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        canvas { position: absolute; top: 0; left: 0; }
+        
+        #canvas-temp { 
+            z-index: 5; 
+            cursor: default; 
+            touch-action: none; 
+            opacity: 0; 
+        } 
+
+        /* EDITOR FLOTTANTI */
+        .floating-box {
+            position: absolute; 
+            display: none; 
+            z-index: 20;
+            background: transparent; 
+            border: 2px dashed #0078d4; 
+            padding: 0; 
+        }
+        
+        #floating-text-box {
+            background: rgba(255,255,255,0.9);
+            padding: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        #floating-img-box { border-color: #ff4500; }
+        #floating-shape-box { border-color: #28a745; }
+
+        .floating-controls {
+            position: absolute; 
+            top: -40px; 
+            left: 0; 
+            display: flex; 
+            gap: 4px;
+            background: #eee; 
+            padding: 4px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            pointer-events: auto;
+            white-space: nowrap;
+        }
+
+        .shape-controls-wrap {
+            flex-wrap: wrap; 
+            max-width: 380px; 
+            min-width: 280px; 
+            align-items: center;
+        }
+
+        .drag-handle { 
+            cursor: move; 
+            background: #333; 
+            color: white; 
+            padding: 2px 8px; 
+            border-radius: 3px; 
+            font-size: 12px; 
+            touch-action: none; 
+            user-select: none;
+            display: flex;
+            align-items: center;
+        }
+        
+        textarea { 
+            background: transparent; 
+            border: 1px solid #ccc; 
+            outline: none; 
+            resize: both; 
+            width: 100%; 
+            min-width: 100px;
+            min-height: 40px;
+            font-family: Arial; 
+            padding: 4px;
+        }
+
+        /* GESTIONE PAGINE SUPERIORE */
+        .page-manager { 
+            background: #f3f2f1; 
+            padding: 5px 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 13px; 
+            border-bottom: 1px solid #aaa; 
+        }
+
+        /* MODALI PANNELLI */
+        .modal-panel {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: white; padding: 25px; border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 1000;
+            flex-direction: column; gap: 15px; width: 420px;
+        }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); z-index: 999;
+        }
+
+        .grid-2col {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;
+        }
+
+        /* PRESENTAZIONE VIEW */
+        #presentation-view {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: black; z-index: 2000; justify-content: center; align-items: center;
+        }
+        #presentation-canvas {
+            box-shadow: 0 0 20px rgba(255,255,255,0.2); cursor: pointer;
+        }
+        
+        .close-presentation {
+            position: absolute; top: 25px; right: 30px;
+            background: #dc3545; color: white; border: 2px solid white;
+            padding: 10px 20px; font-size: 15px; cursor: pointer;
+            border-radius: 8px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            transition: background 0.2s; z-index: 2010;
+        }
+        .close-presentation:hover { background: #c82333; }
+        
+        .presentation-controls {
+            position: absolute; bottom: 30px; display: flex; gap: 15px;
+            background: rgba(0,0,0,0.7); padding: 12px 25px; border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 2010;
+        }
+        
+        .presentation-btn {
+            background: transparent; color: white; border: 1px solid rgba(255,255,255,0.4);
+            padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 15px;
+            transition: all 0.2s;
+        }
+        .presentation-btn:hover { background: rgba(255,255,255,0.2); border-color: white; }
+
+        /* SIDEBAR MINIATURE PRESENTAZIONE */
+        #presentation-sidebar {
+            position: absolute; left: 0; top: 0; height: 100%; width: 230px;
+            background: rgba(30,30,30,0.95); z-index: 2005;
+            display: flex; flex-direction: column; gap: 15px; padding: 80px 15px 15px 15px;
+            overflow-y: auto; transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%); border-right: 1px solid #444;
+        }
+        #presentation-sidebar.open { transform: translateX(0); }
+        
+        .sidebar-thumb {
+            width: 100%; border: 3px solid transparent; cursor: pointer; border-radius: 5px;
+            background: white; transition: 0.2s;
+        }
+        .sidebar-thumb:hover { border-color: #888; }
+        .sidebar-thumb.active { border-color: #0078d4; }
+        .sidebar-label { color: white; font-size: 12px; text-align: center; margin-top: 5px; }
+
+        .toggle-sidebar-btn {
+            position: absolute; top: 25px; left: 30px;
+            background: #0078d4; color: white; border: 2px solid white;
+            padding: 10px 20px; font-size: 15px; cursor: pointer;
+            border-radius: 8px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            transition: background 0.2s; z-index: 2010;
+        }
+        .toggle-sidebar-btn:hover { background: #005a9e; }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <!--<div class="tool-group">
+            <button onclick="undo()" title="Annulla ultima azione">↩ Undo</button>
+            <button onclick="redo()" title="Ripristina azione">↪ Redo</button>
+        </div>-->
+
+        <div class="tool-group">
+            <button id="btnMouse" class="active" title="Muovi/Seleziona">🖱️ Seleziona</button>
+            <button id="btnText" title="Inserisci Testo">T Testo</button>
+            <button onclick="openShapePanel()" style="background:#28a745; color:white;">🟡 Figura</button>
+            <button onclick="document.getElementById('uploadImg').click()" style="background:#0078d4; color:white;">🖼️ +Foto</button>
+            <input type="file" id="uploadImg" hidden accept="image/*">
+        </div>
+
+        <div class="tool-group">
+            <label>Colore:</label>
+            <input type="color" id="colorPicker" value="#000000" style="height: 30px;">
+            <label>Testo:</label>
+            <input type="range" id="sizePicker" min="1" max="50" value="12" style="width:60px">
+        </div>
+
+        <div class="tool-group">
+            <select id="paperFormat" style="height: 30px;">
+                <option value="Slide">Slide 16:9 (1280x720)</option>
+                <option value="A4">A4 (Orizzontale)</option>
+                <option value="A3">A3 (Orizzontale)</option>
+                <option value="custom">Manuale</option>
+            </select>
+            <button onclick="setSize()">Imposta Formato</button>
+        </div>
+
+        <div class="tool-group">
+            <button onclick="openTransitionsPanel()">✨ Transizioni</button>
+            <button onclick="startPresentation()" style="background:#17a2b8; color:white;">▶ Avvia Presentazione</button>
+        </div>
+
+        <div class="tool-group" style="border:none">
+            <button id="btnSaveProject" style="background:#5c2d91; color:white;">💾 Salva</button>
+            <button onclick="document.getElementById('loadProject').click()">📂 Carica</button>
+            <input type="file" id="loadProject" hidden accept=".json">
+            
+            <button id="btnExportPDF" style="background:#dc3545; color:white;">📄 PDF</button>
+            <button id="btnExportPNG" style="background:#ffc107; color:black; margin-left: 5px;">🖼️ PNG</button>
+        </div>
+    </div>
+
+    <div class="page-manager">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button onclick="changePage(-1)">◀ Precedente</button>
+            <span id="pageDisplay" style="font-weight: bold;">Slide 1 / 1</span>
+            <button onclick="changePage(1)">Successiva ▶</button>
+        </div>
+        <button onclick="addPage()" style="border-style: dashed; background:#e2f0d9; font-weight: bold;">+ Aggiungi Nuova Slide</button>
+    </div>
+
+    <div class="main-layout">
+        <div class="slides-sidebar" id="slidesSidebar">
+            </div>
+
+        <div id="viewport">
+            <div id="canvas-container">
+                <canvas id="canvas-main"></canvas>
+                <canvas id="canvas-temp"></canvas>
+                
+                <div id="floating-text-box" class="floating-box">
+                    <div class="floating-controls">
+                        <div class="drag-handle" id="textDragHandle">✥ Muovi</div>
+                        <button onclick="moveLayer('up')" style="background:#6c757d;color:white" title="Porta Avanti">⬆️</button>
+                        <button onclick="moveLayer('down')" style="background:#6c757d;color:white" title="Porta Indietro">⬇️</button>
+                        <button onclick="saveTextObject()" style="background:#28a745;color:white">✔</button>
+                        <button onclick="deleteTextObject()" style="background:#dc3545;color:white">✖</button>
+                    </div>
+                    <textarea id="textInput" placeholder="Scrivi qui..."></textarea>
+                </div>
+
+                <div id="floating-img-box" class="floating-box">
+                    <div class="floating-controls">
+                        <div class="drag-handle" id="imgDragHandle">✥ Muovi</div>
+                        <label style="font-size:12px;">Zoom:</label>
+                        <input type="range" id="imgResize" min="10" max="2000" value="100">
+                        <button onclick="moveLayer('up')" style="background:#6c757d;color:white" title="Porta Avanti">⬆️</button>
+                        <button onclick="moveLayer('down')" style="background:#6c757d;color:white" title="Porta Indietro">⬇️</button>
+                        <button onclick="saveImageObject()" style="background:#28a745;color:white">✔</button>
+                        <button onclick="deleteImageObject()" style="background:#dc3545;color:white">✖</button>
+                    </div>
+                </div>
+
+                <div id="floating-shape-box" class="floating-box">
+                    <div class="floating-controls shape-controls-wrap">
+                        <div style="display:flex; gap:4px; margin-bottom:2px;">
+                            <div class="drag-handle" id="shapeDragHandle">✥ Muovi</div>
+                            <label style="font-size:12px;">Larg:</label>
+                            <input type="range" id="shapeW" min="10" max="2000" style="width:60px">
+                            <label style="font-size:12px;">Alt:</label>
+                            <input type="range" id="shapeH" min="10" max="2000" style="width:60px">
+                            
+                            <button onclick="document.getElementById('uploadShapeImg').click()">🖼️ Riempi</button>
+                            <input type="file" id="uploadShapeImg" hidden accept="image/*">
+                            
+                            <button onclick="moveLayer('up')" style="background:#6c757d;color:white" title="Porta Avanti">⬆️</button>
+                            <button onclick="moveLayer('down')" style="background:#6c757d;color:white" title="Porta Indietro">⬇️</button>
+                            
+                            <button onclick="saveShapeObject()" style="background:#28a745;color:white">✔</button>
+                            <button onclick="deleteShapeObject()" style="background:#dc3545;color:white">✖</button>
+                        </div>
+                        
+                        <div id="shapeImgControls" style="display:none; width:100%; align-items:center; gap:5px; border-top:1px solid #ccc; padding-top:4px;">
+                            <span style="font-size:11px; font-weight:bold; color:#0078d4">Regola Foto:</span>
+                            <label style="font-size:11px;">Zoom:</label>
+                            <input type="range" id="shapeImgZ" min="10" max="300" value="100" style="width:60px">
+                            <label style="font-size:11px;">X:</label>
+                            <input type="range" id="shapeImgX" min="-1000" max="1000" value="0" style="width:60px">
+                            <label style="font-size:11px;">Y:</label>
+                            <input type="range" id="shapeImgY" min="-1000" max="1000" value="0" style="width:60px">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay"></div>
+
+    <div class="modal-panel" id="panel-shape">
+        <h3 style="margin-bottom: 5px; color:#333; border-bottom:2px solid #28a745; padding-bottom:5px;">Inserisci Figura</h3>
+        <div class="grid-2col">
+            <label style="font-weight:bold;">Tipo di Figura:</label>
+            <select id="shapeTypeSel" onchange="drawShapePreview()" style="width:100%;">
+                <option value="rect">Quadrato / Rettangolo</option>
+                <option value="circle">Cerchio / Ellisse</option>
+                <option value="triangle">Triangolo Equilatero</option>
+                <option value="semi-top">Semicerchio (Sopra)</option>
+                <option value="semi-bottom">Semicerchio (Sotto)</option>
+                <option value="semi-left">Semicerchio (Sinistra)</option>
+                <option value="semi-right">Semicerchio (Destra)</option>
+            </select>
+            <label style="font-weight:bold;">Grandezza Iniziale:</label>
+            <input type="range" id="shapePreviewSize" min="50" max="600" value="150" oninput="drawShapePreview()" style="width:100%;">
+        </div>
+        <div style="display:flex; justify-content:center; align-items:center; background:#f8f9fa; border:2px dashed #ccc; padding:10px; border-radius:8px; height: 180px;">
+            <canvas id="shapePreviewCanvas" width="300" height="150"></canvas>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:5px;">
+            <button onclick="insertShapeFromPanel()" style="background:#28a745; color:white; flex-grow:1; font-size:15px; padding:10px;">✔ Inserisci</button>
+            <button onclick="closeModals()" style="background:#dc3545; color:white; font-size:15px; padding:10px;">Annulla</button>
+        </div>
+    </div>
+
+    <div class="modal-panel" id="panel-transitions">
+        <h3 style="border-bottom:2px solid #17a2b8; padding-bottom:5px;">Imposta Transizione</h3>
+        <p style="font-size: 13px; color: #555;">Scegli l'effetto che ci sarà passando dalla slide selezionata alla successiva.</p>
+        <label style="font-weight:bold;">Dalla Slide:</label>
+        <select id="transSlideIndex"></select>
+        <label style="font-weight:bold; margin-top:10px;">Effetto in uscita:</label>
+        <select id="transEffect">
+            <option value="none">Nessuna (Taglio netto)</option>
+            <option value="fade">Dissolvenza (Fade classico)</option>
+            <option value="blocks">Quadretti (Pixelate)</option>
+            <option value="spiral">Spirale (Rotazione)</option>
+        </select>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button onclick="applyTransition()" style="background:#28a745; color:white; flex-grow:1; padding:8px;">✔ Salva</button>
+            <button onclick="closeModals()" style="background:#6c757d; color:white; padding:8px;">Chiudi</button>
+        </div>
+    </div>
+
+    <div id="presentation-view">
+        <button id="toggle-sidebar-btn" class="toggle-sidebar-btn" onclick="toggleSidebar()">☰ Slide</button>
+        <button class="close-presentation" onclick="stopPresentation()">✖ Esci</button>
+        
+        <div id="presentation-sidebar"></div>
+
+        <canvas id="presentation-canvas"></canvas>
+        <div class="presentation-controls">
+            <button class="presentation-btn" onclick="prevSlide(event)">◀ Indietro</button>
+            <button class="presentation-btn" onclick="nextSlide(event)">Avanti ▶</button>
+        </div>
+    </div>
+
+<script>
+    const mainCanvas = document.getElementById('canvas-main');
+    const mctx = mainCanvas.getContext('2d');
+    const tempCanvas = document.getElementById('canvas-temp');
+    const container = document.getElementById('canvas-container');
+    
+    let tool = 'mouse';
+    let pages = [{ texts: [], images: [], shapes: [], transitionNext: 'none' }];
+    let currentPage = 0;
+    
+    // VARIABILI GERARCHIA E UNDO/REDO
+    let layerCounter = 0;
+    let history = [];
+    let historyStep = -1;
+    
+    // Elementi UI Editor
+    const floatingTextBox = document.getElementById('floating-text-box');
+    const textInput = document.getElementById('textInput');
+    const floatingImgBox = document.getElementById('floating-img-box');
+    const imgResize = document.getElementById('imgResize');
+    const floatingShapeBox = document.getElementById('floating-shape-box');
+    const shapeW = document.getElementById('shapeW');
+    const shapeH = document.getElementById('shapeH');
+
+    let selectedTextIndex = null;
+    let selectedImageIndex = null;
+    let selectedShapeIndex = null;
+
+    // --- ALERT USCITA PAGINA ---
+    window.addEventListener("beforeunload", function (e) {
+        var msg = "Sei sicuro di voler uscire? Le modifiche andranno perse.";
+        e.returnValue = msg;
+        return msg;
+    });
+
+    // --- GESTIONE STATO (UNDO / REDO TEXT FIX) ---
+    function saveState() {
+        // Se c'è un testo aperto, aggiorniamo prima i suoi dati attuali nell'array dei testi
+        if (selectedTextIndex !== null) {
+            updateActiveTextInPage();
+        }
+
+        if (historyStep < history.length - 1) {
+            history = history.slice(0, historyStep + 1);
+        }
+        const state = {
+            pages: JSON.parse(JSON.stringify(pages)),
+            layerCounter: layerCounter
+        };
+        history.push(state);
+        historyStep++;
+    }
+
+    function updateActiveTextInPage() {
+        if (selectedTextIndex !== null && pages[currentPage].texts[selectedTextIndex]) {
+            pages[currentPage].texts[selectedTextIndex].content = textInput.value;
+            pages[currentPage].texts[selectedTextIndex].x = parseInt(floatingTextBox.style.left) || pages[currentPage].texts[selectedTextIndex].x;
+            pages[currentPage].texts[selectedTextIndex].y = parseInt(floatingTextBox.style.top) || pages[currentPage].texts[selectedTextIndex].y;
+            pages[currentPage].texts[selectedTextIndex].color = textInput.style.color;
+            pages[currentPage].texts[selectedTextIndex].size = parseInt(textInput.style.fontSize) / 2 || 12;
+            pages[currentPage].texts[selectedTextIndex].width = textInput.offsetWidth + 10;
+            pages[currentPage].texts[selectedTextIndex].height = textInput.offsetHeight + 10;
+        }
+    }
+
+    function undo() {
+        // Se stiamo scrivendo o muovendo un testo, salviamo lo stato attuale prima di fare Undo
+        if (selectedTextIndex !== null) {
+            updateActiveTextInPage();
+            saveState();
+            historyStep--; // Torna indietro rispetto allo snapshot appena fatto
+        }
+
+        if (historyStep > 0) {
+            historyStep--;
+            let state = history[historyStep];
+            pages = JSON.parse(JSON.stringify(state.pages));
+            layerCounter = state.layerCounter;
+            
+            if (currentPage >= pages.length) currentPage = pages.length - 1;
+            
+            restoreImages();
+            closeAll(true); // Chiude senza creare un nuovo stato
+            updateSidebar(); 
+        }
+    }
+
+    function redo() {
+        if (historyStep < history.length - 1) {
+            historyStep++;
+            let state = history[historyStep];
+            pages = JSON.parse(JSON.stringify(state.pages));
+            layerCounter = state.layerCounter;
+            
+            if (currentPage >= pages.length) currentPage = pages.length - 1;
+            
+            restoreImages();
+            closeAll(true);
+            updateSidebar(); 
+        }
+    }
+
+    function restoreImages() {
+        pages.forEach(p => {
+            p.images.forEach(img => {
+                if (img.data) {
+                    img.el = new Image(); img.el.src = img.data;
+                    img.el.onload = () => render();
+                }
+            });
+            p.shapes.forEach(s => {
+                if (s.imgFillData) {
+                    s.imgFillEl = new Image(); s.imgFillEl.src = s.imgFillData;
+                    s.imgFillEl.onload = () => render();
+                }
+            });
+        });
+    }
+
+    // --- SETUP INIZIALE ---
+    function setSize() {
+        let w, h;
+        let fmt = document.getElementById('paperFormat').value;
+        if (fmt === 'Slide') { w = 1280; h = 720; }
+        else if (fmt === 'A4') { w = 1123; h = 794; } 
+        else if (fmt === 'A3') { w = 1587; h = 1123; }
+        else {
+            w = parseInt(prompt("Larghezza (px):", "1280")) || 1280;
+            h = parseInt(prompt("Altezza (px):", "720")) || 720;
+        }
+        container.style.width = w + 'px'; container.style.height = h + 'px';
+        mainCanvas.width = w; mainCanvas.height = h;
+        tempCanvas.width = w; tempCanvas.height = h;
+        
+        render();
+        if (history.length === 0) saveState();
+    }
+
+    // --- RENDER MISTO (GERARCHIA + PAN/ZOOM IMMAGINI FORME) ---
+    function render() {
+        mctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        mctx.fillStyle = "white"; mctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+        
+        let allElements = [];
+        pages[currentPage].shapes.forEach((s, i) => allElements.push({type: 'shape', obj: s, index: i}));
+        pages[currentPage].images.forEach((i, idx) => allElements.push({type: 'image', obj: i, index: idx}));
+        pages[currentPage].texts.forEach((t, i) => allElements.push({type: 'text', obj: t, index: i}));
+        
+        allElements.sort((a, b) => (a.obj.layer || 0) - (b.obj.layer || 0));
+
+        allElements.forEach(el => {
+            if (el.type === 'shape') {
+                const s = el.obj;
+                mctx.save();
+                drawShapePath(mctx, s.type, s.x, s.y, s.w, s.h);
+                
+                if (s.imgFillData && !s.imgFillEl) {
+                    s.imgFillEl = new Image(); s.imgFillEl.src = s.imgFillData;
+                    s.imgFillEl.onload = () => render();
+                }
+                
+                if (s.imgFillEl) {
+                    mctx.clip();
+                    let z = (s.imgZoom || 100) / 100;
+                    let ox = s.imgOffsetX || 0;
+                    let oy = s.imgOffsetY || 0;
+                    let iw = s.w * z; let ih = s.h * z;
+                    let cx = s.x + (s.w - iw)/2 + ox;
+                    let cy = s.y + (s.h - ih)/2 + oy;
+                    mctx.drawImage(s.imgFillEl, cx, cy, iw, ih);
+                } else {
+                    mctx.fillStyle = s.color || '#cccccc'; mctx.fill();
+                }
+                mctx.restore();
+            }
+            else if (el.type === 'image') {
+                const img = el.obj;
+                if (!img.el) { 
+                    img.el = new Image(); img.el.src = img.data; img.el.onload = () => render(); 
+                } else { mctx.drawImage(img.el, img.x, img.y, img.w, img.h); }
+            }
+            else if (el.type === 'text') {
+                const t = el.obj;
+                if (el.index === selectedTextIndex && floatingTextBox.style.display === 'block') return;
+                mctx.fillStyle = t.color; const fs = t.size * 2; 
+                mctx.font = `${fs}px Arial`; mctx.textBaseline = "top";
+                t.content.split('\n').forEach((line, j) => { 
+                    mctx.fillText(line, t.x + 4, t.y + 4 + (j * fs * 1.2)); 
+                });
+            }
+        });
+    }
+
+    // --- DISEGNO FORME E CORREZIONE SEMICERCHI ---
+    function drawShapePath(ctx, type, x, y, w, h) {
+        ctx.beginPath();
+        if (type === 'rect') { ctx.rect(x, y, w, h); } 
+        else if (type === 'circle') { ctx.ellipse(x+w/2, y+h/2, w/2, h/2, 0, 0, Math.PI*2); } 
+        else if (type === 'triangle') { 
+            ctx.moveTo(x+w/2, y); ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); 
+        }
+        else if (type === 'semi-top') { ctx.ellipse(x+w/2, y + h, w/2, h, 0, Math.PI, 0); } 
+        else if (type === 'semi-bottom') { ctx.ellipse(x+w/2, y, w/2, h, 0, 0, Math.PI); } 
+        else if (type === 'semi-left') { ctx.ellipse(x + w, y+h/2, w, h/2, 0, Math.PI/2, Math.PI*1.5); } 
+        else if (type === 'semi-right') { ctx.ellipse(x, y+h/2, w, h/2, 0, -Math.PI/2, Math.PI/2); }
+        ctx.closePath();
+    }
+
+    // --- FUNZIONE LIVELLI ---
+    function moveLayer(dir) {
+        let elArray = [];
+        pages[currentPage].texts.forEach(t => elArray.push(t));
+        pages[currentPage].images.forEach(i => elArray.push(i));
+        pages[currentPage].shapes.forEach(s => elArray.push(s));
+        elArray.sort((a, b) => (a.layer || 0) - (b.layer || 0));
+
+        let selectedObj = null;
+        if (selectedTextIndex !== null) selectedObj = pages[currentPage].texts[selectedTextIndex];
+        else if (selectedImageIndex !== null) selectedObj = pages[currentPage].images[selectedImageIndex];
+        else if (selectedShapeIndex !== null) selectedObj = pages[currentPage].shapes[selectedShapeIndex];
+
+        if (!selectedObj) return;
+
+        let idx = elArray.indexOf(selectedObj);
+        if (dir === 'up' && idx < elArray.length - 1) {
+            let temp = elArray[idx].layer;
+            elArray[idx].layer = elArray[idx+1].layer;
+            elArray[idx+1].layer = temp;
+            render(); saveState();
+        } else if (dir === 'down' && idx > 0) {
+            let temp = elArray[idx].layer;
+            elArray[idx].layer = elArray[idx-1].layer;
+            elArray[idx-1].layer = temp;
+            render(); saveState();
+        }
+    }
+
+    // --- GESTIONE PAGINE E SIDEBAR EDITOR ---
+    function addPage() { 
+        pages.push({ texts: [], images: [], shapes: [], transitionNext: 'none' }); 
+        currentPage = pages.length - 1; loadPageState(); saveState();
+    }
+    function changePage(dir) { 
+        let newP = currentPage + dir; 
+        if (newP >= 0 && newP < pages.length) { currentPage = newP; loadPageState(); } 
+    }
+    function selectPage(index) {
+        if (index >= 0 && index < pages.length) { currentPage = index; loadPageState(); }
+    }
+    function deleteSlide(index, event) {
+        event.stopPropagation();
+        if (pages.length <= 1) { alert("Non puoi eliminare l'unica slide rimasta!"); return; }
+        if (confirm(`Sei sicuro di voler eliminare la Slide ${index + 1}?`)) {
+            pages.splice(index, 1);
+            if (currentPage >= pages.length) currentPage = pages.length - 1;
+            loadPageState(); saveState();
+        }
+    }
+    function moveSlide(index, direction, event) {
+        event.stopPropagation();
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= pages.length) return;
+        const temp = pages[index]; pages[index] = pages[targetIndex]; pages[targetIndex] = temp;
+        if (currentPage === index) { currentPage = targetIndex; } 
+        else if (currentPage === targetIndex) { currentPage = index; }
+        loadPageState(); saveState();
+    }
+    
+    function updateSidebar() {
+        const sidebar = document.getElementById('slidesSidebar');
+        sidebar.innerHTML = '';
+        pages.forEach((page, index) => {
+            const thumb = document.createElement('div');
+            thumb.className = `slide-thumbnail ${index === currentPage ? 'active' : ''}`;
+            thumb.innerHTML = `
+                <div>Slide ${index + 1}</div>
+                <div class="slide-thumb-actions">
+                    <button onclick="moveSlide(${index}, -1, event)" title="Sposta su">▲</button>
+                    <button onclick="moveSlide(${index}, 1, event)" title="Sposta giù">▼</button>
+                    <button onclick="deleteSlide(${index}, event)" style="background:#dc3545; color:white;" title="Elimina">✖</button>
+                </div>
+            `;
+            thumb.onclick = () => selectPage(index);
+            sidebar.appendChild(thumb);
+        });
+    }
+
+    function loadPageState(skipSave = false) {
+        closeAll(skipSave); 
+        render(); updateSidebar();
+        document.getElementById('pageDisplay').innerText = `Slide ${currentPage + 1} / ${pages.length}`;
+    }
+
+    // --- INTERAZIONE MOUSE (SELEZIONE ELEMENTI) ---
+    tempCanvas.onpointerdown = (e) => {
+        const x = e.offsetX; const y = e.offsetY;
+        let clickable = [];
+        pages[currentPage].shapes.forEach((s, i) => clickable.push({type: 'shape', obj: s, index: i}));
+        pages[currentPage].images.forEach((i, idx) => clickable.push({type: 'image', obj: i, index: idx}));
+        pages[currentPage].texts.forEach((t, i) => clickable.push({type: 'text', obj: t, index: i}));
+        clickable.sort((a, b) => (b.obj.layer || 0) - (a.obj.layer || 0)); 
+
+        if (tool === 'mouse') {
+            for(let el of clickable) {
+                if (x >= el.obj.x && x <= el.obj.x + (el.obj.w || el.obj.width) && 
+                    y >= el.obj.y && y <= el.obj.y + (el.obj.h || el.obj.height)) {
+                    if (el.type === 'text') return openTextEditor(el.obj, el.index);
+                    if (el.type === 'image') return openImageEditor(el.obj, el.index);
+                    if (el.type === 'shape') return openShapeEditor(el.obj, el.index);
+                }
+            }
+            closeAll(); return;
+        }
+        
+        if (tool === 'text') {
+            for(let el of clickable) {
+                if (el.type === 'text' && x >= el.obj.x && x <= el.obj.x + el.obj.width && 
+                    y >= el.obj.y && y <= el.obj.y + el.obj.height) {
+                    return openTextEditor(el.obj, el.index);
+                }
+            }
+            return openTextEditor({ x: x, y: y, content: "", color: document.getElementById('colorPicker').value, size: document.getElementById('sizePicker').value }, null);
+        }
+    };
+
+    function hideFloatingBoxes() {
+        floatingTextBox.style.display = 'none';
+        floatingImgBox.style.display = 'none';
+        floatingShapeBox.style.display = 'none';
+    }
+
+    document.getElementById('colorPicker').addEventListener('input', (e) => {
+        if(floatingTextBox.style.display === 'block') textInput.style.color = e.target.value;
+    });
+    document.getElementById('sizePicker').addEventListener('input', (e) => {
+        if(floatingTextBox.style.display === 'block') textInput.style.fontSize = (e.target.value * 2) + 'px';
+    });
+
+    // --- EDITOR TESTO ---
+    function openTextEditor(t, index) {
+        // Se c'era un testo precedente attivo, salviamolo prima
+        if (selectedTextIndex !== null) saveTextObject();
+
+        hideFloatingBoxes(); selectedTextIndex = index; 
+        floatingTextBox.style.display = 'block'; 
+        floatingTextBox.style.left = t.x + 'px'; floatingTextBox.style.top = t.y + 'px';
+        textInput.value = t.content; textInput.style.color = t.color; textInput.style.fontSize = (t.size * 2) + 'px';
+        if(t.width) { textInput.style.width = t.width + 'px'; textInput.style.height = t.height + 'px'; }
+        else { textInput.style.width = '150px'; textInput.style.height = '60px'; }
+        setTimeout(() => { textInput.focus(); }, 50); render();
+    }
+    
+    function saveTextObject() {
+        if(textInput.value.trim() === "") {
+            deleteTextObject();
+            return;
+        }
+        const obj = { 
+            content: textInput.value, x: parseInt(floatingTextBox.style.left) || 10, y: parseInt(floatingTextBox.style.top) || 10, 
+            color: textInput.style.color, size: parseInt(textInput.style.fontSize) / 2 || 12, 
+            width: textInput.offsetWidth + 10, height: textInput.offsetHeight + 10,
+            layer: (selectedTextIndex !== null && pages[currentPage].texts[selectedTextIndex]) ? pages[currentPage].texts[selectedTextIndex].layer : ++layerCounter
+        };
+        if (selectedTextIndex !== null && pages[currentPage].texts[selectedTextIndex]) { 
+            pages[currentPage].texts[selectedTextIndex] = obj; 
+        } else { 
+            pages[currentPage].texts.push(obj); 
+        } 
+        closeAll(); 
+    }
+    
+    function deleteTextObject() { 
+        if (selectedTextIndex !== null && pages[currentPage].texts[selectedTextIndex]) {
+            pages[currentPage].texts.splice(selectedTextIndex, 1); 
+        }
+        closeAll(); 
+    }
+
+    // --- EDITOR IMMAGINE ---
+    function openImageEditor(img, index) {
+        if (selectedTextIndex !== null) saveTextObject();
+        hideFloatingBoxes(); selectedImageIndex = index;
+        floatingImgBox.style.display = 'block'; 
+        floatingImgBox.style.left = img.x + 'px'; floatingImgBox.style.top = img.y + 'px';
+        floatingImgBox.style.width = img.w + 'px'; floatingImgBox.style.height = img.h + 'px'; 
+        imgResize.value = img.w; render();
+    }
+    imgResize.addEventListener('input', (e) => {
+        if (selectedImageIndex === null) return;
+        const newW = parseInt(e.target.value);
+        const img = pages[currentPage].images[selectedImageIndex];
+        const newH = newW * (img.origH / img.origW);
+        floatingImgBox.style.width = newW + 'px'; floatingImgBox.style.height = newH + 'px';
+        img.w = newW; img.h = newH; render(); 
+    });
+    function saveImageObject() { closeAll(); }
+    function deleteImageObject() { 
+        if (selectedImageIndex !== null) pages[currentPage].images.splice(selectedImageIndex, 1); 
+        closeAll(); 
+    }
+
+    // --- LOGICA FORME ---
+    function openShapePanel() {
+        if (selectedTextIndex !== null) saveTextObject();
+        closeAll(true);
+        document.getElementById('modalOverlay').style.display = 'block';
+        document.getElementById('panel-shape').style.display = 'flex';
+        drawShapePreview();
+    }
+    function drawShapePreview() {
+        const pCanvas = document.getElementById('shapePreviewCanvas');
+        const pCtx = pCanvas.getContext('2d');
+        const type = document.getElementById('shapeTypeSel').value;
+        const size = parseInt(document.getElementById('shapePreviewSize').value);
+        const color = document.getElementById('colorPicker').value;
+
+        pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+        
+        let w = size, h = size;
+        if (type === 'semi-top' || type === 'semi-bottom') h = size / 2;
+        if (type === 'semi-left' || type === 'semi-right') w = size / 2;
+        const scale = Math.min(1, 140 / size);
+        w *= scale; h *= scale;
+        const x = (pCanvas.width - w) / 2; const y = (pCanvas.height - h) / 2;
+
+        pCtx.fillStyle = color;
+        drawShapePath(pCtx, type, x, y, w, h);
+        pCtx.fill();
+    }
+    function insertShapeFromPanel() {
+        const type = document.getElementById('shapeTypeSel').value;
+        const size = parseInt(document.getElementById('shapePreviewSize').value);
+        const color = document.getElementById('colorPicker').value;
+
+        let w = size, h = size;
+        if (type === 'semi-top' || type === 'semi-bottom') h = size / 2;
+        if (type === 'semi-left' || type === 'semi-right') w = size / 2;
+
+        pages[currentPage].shapes.push({
+            type: type, x: mainCanvas.width/2 - w/2, y: mainCanvas.height/2 - h/2,
+            w: w, h: h, color: color, imgFillData: null, imgFillEl: null,
+            imgZoom: 100, imgOffsetX: 0, imgOffsetY: 0, layer: ++layerCounter
+        });
+
+        closeModals(); render(); saveState();
+    }
+    function openShapeEditor(shape, index) {
+        if (selectedTextIndex !== null) saveTextObject();
+        hideFloatingBoxes(); selectedShapeIndex = index;
+        floatingShapeBox.style.display = 'block'; 
+        floatingShapeBox.style.left = shape.x + 'px'; floatingShapeBox.style.top = shape.y + 'px';
+        floatingShapeBox.style.width = shape.w + 'px'; floatingShapeBox.style.height = shape.h + 'px'; 
+        shapeW.value = shape.w; shapeH.value = shape.h;
+        
+        const imgControls = document.getElementById('shapeImgControls');
+        if (shape.imgFillData) {
+            imgControls.style.display = 'flex';
+            document.getElementById('shapeImgZ').value = shape.imgZoom || 100;
+            document.getElementById('shapeImgX').value = shape.imgOffsetX || 0;
+            document.getElementById('shapeImgY').value = shape.imgOffsetY || 0;
+        } else {
+            imgControls.style.display = 'none';
+        }
+        render();
+    }
+    shapeW.addEventListener('input', (e) => { 
+        floatingShapeBox.style.width = e.target.value + 'px'; 
+        if (selectedShapeIndex !== null) { pages[currentPage].shapes[selectedShapeIndex].w = parseInt(e.target.value); render(); }
+    });
+    shapeH.addEventListener('input', (e) => { 
+        floatingShapeBox.style.height = e.target.value + 'px'; 
+        if (selectedShapeIndex !== null) { pages[currentPage].shapes[selectedShapeIndex].h = parseInt(e.target.value); render(); }
+    });
+
+    document.getElementById('shapeImgZ').addEventListener('input', (e) => { 
+        if(selectedShapeIndex !== null) { pages[currentPage].shapes[selectedShapeIndex].imgZoom = parseInt(e.target.value); render(); }
+    });
+    document.getElementById('shapeImgX').addEventListener('input', (e) => { 
+        if(selectedShapeIndex !== null) { pages[currentPage].shapes[selectedShapeIndex].imgOffsetX = parseInt(e.target.value); render(); }
+    });
+    document.getElementById('shapeImgY').addEventListener('input', (e) => { 
+        if(selectedShapeIndex !== null) { pages[currentPage].shapes[selectedShapeIndex].imgOffsetY = parseInt(e.target.value); render(); }
+    });
+
+    document.getElementById('uploadShapeImg').onchange = (e) => {
+        const file = e.target.files[0]; if (!file || selectedShapeIndex === null) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const shape = pages[currentPage].shapes[selectedShapeIndex];
+            shape.imgFillData = ev.target.result; 
+            shape.imgZoom = 100; shape.imgOffsetX = 0; shape.imgOffsetY = 0;
+            shape.imgFillEl = new Image(); shape.imgFillEl.src = shape.imgFillData;
+            shape.imgFillEl.onload = () => {
+                document.getElementById('shapeImgControls').style.display = 'flex';
+                document.getElementById('shapeImgZ').value = 100;
+                document.getElementById('shapeImgX').value = 0;
+                document.getElementById('shapeImgY').value = 0;
+                render(); saveState(); 
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    function saveShapeObject() { closeAll(); }
+    function deleteShapeObject() {
+        if (selectedShapeIndex !== null) pages[currentPage].shapes.splice(selectedShapeIndex, 1); 
+        closeAll(); 
+    }
+
+    // --- TRANSIZIONI ---
+    function openTransitionsPanel() {
+        if (selectedTextIndex !== null) saveTextObject();
+        document.getElementById('modalOverlay').style.display = 'block';
+        document.getElementById('panel-transitions').style.display = 'flex';
+        const select = document.getElementById('transSlideIndex');
+        select.innerHTML = '';
+        for(let i=0; i<pages.length; i++) {
+            let opt = document.createElement('option'); opt.value = i; opt.text = `Slide ${i+1}`;
+            if(i === currentPage) opt.selected = true; select.appendChild(opt);
+        }
+        document.getElementById('transEffect').value = pages[currentPage].transitionNext || 'none';
+    }
+    document.getElementById('transSlideIndex').onchange = (e) => {
+        document.getElementById('transEffect').value = pages[parseInt(e.target.value)].transitionNext || 'none';
+    };
+    function applyTransition() {
+        const idx = parseInt(document.getElementById('transSlideIndex').value);
+        pages[idx].transitionNext = document.getElementById('transEffect').value;
+        closeModals(); saveState(); alert(`Transizione applicata alla Slide ${idx+1}!`);
+    }
+
+    // --- MOTORE DI PRESENTAZIONE E MENU LATERALE ---
+    let presentationImages = []; let playIndex = 0; let isAnimating = false; let sidebarOpen = false;
+    const pCanvas = document.getElementById('presentation-canvas');
+    const pCtx = pCanvas.getContext('2d');
+
+    function toggleSidebar() {
+        sidebarOpen = !sidebarOpen;
+        const sidebar = document.getElementById('presentation-sidebar');
+        sidebar.classList.toggle('open', sidebarOpen);
+    }
+
+    async function startPresentation() {
+        if (selectedTextIndex !== null) saveTextObject();
+        closeAll(true);
+        isAnimating = false; sidebarOpen = false;
+        document.getElementById('presentation-sidebar').classList.remove('open');
+        document.getElementById('presentation-view').style.display = 'flex';
+        
+        const scale = Math.min(window.innerWidth / mainCanvas.width, window.innerHeight / mainCanvas.height) * 0.95;
+        pCanvas.width = mainCanvas.width; pCanvas.height = mainCanvas.height;
+        pCanvas.style.width = (mainCanvas.width * scale) + 'px'; pCanvas.style.height = (mainCanvas.height * scale) + 'px';
+
+        presentationImages = []; const originalPage = currentPage;
+        pCtx.fillStyle = 'black'; pCtx.fillRect(0,0,pCanvas.width, pCanvas.height);
+        pCtx.fillStyle = 'white'; pCtx.font = '30px Arial'; pCtx.fillText("Caricamento presentazione...", 50, 50);
+
+        const sidebar = document.getElementById('presentation-sidebar');
+        sidebar.innerHTML = ''; 
+
+        for (let i = 0; i < pages.length; i++) {
+            currentPage = i; loadPageState(true); 
+            await new Promise(r => setTimeout(r, 50)); 
+            let imgUrl = mainCanvas.toDataURL('image/png');
+            let imgEl = new Image(); imgEl.src = imgUrl;
+            presentationImages.push(imgEl);
+
+            let thumbContainer = document.createElement('div');
+            let thumb = document.createElement('img');
+            thumb.src = imgUrl; thumb.className = 'sidebar-thumb'; thumb.id = 'thumb-' + i;
+            thumb.onclick = (e) => { 
+                e.stopPropagation(); if (isAnimating) return; playIndex = i; showPlaySlide(); 
+            };
+            let label = document.createElement('div');
+            label.className = 'sidebar-label'; label.innerText = 'Slide ' + (i + 1);
+            
+            thumbContainer.appendChild(thumb); thumbContainer.appendChild(label); sidebar.appendChild(thumbContainer);
+        }
+        currentPage = originalPage; loadPageState(true); playIndex = 0; showPlaySlide();
+    }
+
+    function showPlaySlide() {
+        if(playIndex >= presentationImages.length) return stopPresentation();
+        pCtx.globalAlpha = 1.0; pCtx.clearRect(0,0,pCanvas.width, pCanvas.height);
+        pCtx.drawImage(presentationImages[playIndex], 0, 0);
+        document.querySelectorAll('.sidebar-thumb').forEach(t => t.classList.remove('active'));
+        let activeThumb = document.getElementById('thumb-' + playIndex);
+        if(activeThumb) activeThumb.classList.add('active');
+    }
+
+    function prevSlide(e) {
+        if (e) e.stopPropagation(); if(isAnimating || playIndex <= 0) return;
+        playIndex--; showPlaySlide();
+    }
+    function nextSlide(e) {
+        if (e) e.stopPropagation(); if(isAnimating) return;
+        const effect = pages[playIndex].transitionNext;
+        if(playIndex < presentationImages.length - 1) {
+            if(effect === 'fade') doFadeTransition(playIndex, playIndex+1);
+            else if(effect === 'blocks') doBlocksTransition(playIndex, playIndex+1);
+            else if(effect === 'spiral') doSpiralTransition(playIndex, playIndex+1);
+            else { playIndex++; showPlaySlide(); }
+        } else { stopPresentation(); }
+    }
+    function stopPresentation() { document.getElementById('presentation-view').style.display = 'none'; }
+    pCanvas.onclick = (e) => nextSlide(e);
+
+    // Animazioni
+    function doFadeTransition(fromIdx, toIdx) {
+        isAnimating = true; let alpha = 0;
+        const imgFrom = presentationImages[fromIdx]; const imgTo = presentationImages[toIdx];
+        function animate() {
+            alpha += 0.05; pCtx.clearRect(0,0,pCanvas.width, pCanvas.height);
+            pCtx.globalAlpha = 1.0; pCtx.drawImage(imgFrom, 0, 0);
+            pCtx.globalAlpha = alpha; pCtx.drawImage(imgTo, 0, 0);
+            if(alpha < 1.0) requestAnimationFrame(animate); else { isAnimating = false; playIndex = toIdx; showPlaySlide(); }
+        }
+        animate();
+    }
+    function doBlocksTransition(fromIdx, toIdx) {
+        isAnimating = true; let progress = 0;
+        const imgFrom = presentationImages[fromIdx]; const imgTo = presentationImages[toIdx];
+        const cols = 12; const rows = 8; const blockW = pCanvas.width / cols; const blockH = pCanvas.height / rows;
+        let blocks = []; for(let i=0; i<cols*rows; i++) blocks.push(i);
+        blocks.sort(() => Math.random() - 0.5); 
+        function animate() {
+            progress += 0.03; pCtx.clearRect(0,0,pCanvas.width, pCanvas.height); pCtx.drawImage(imgFrom, 0, 0);
+            const blocksToShow = Math.floor(progress * blocks.length);
+            for(let i=0; i<blocksToShow; i++) {
+                let idx = blocks[i]; let c = idx % cols; let r = Math.floor(idx / cols);
+                let x = c * blockW; let y = r * blockH;
+                pCtx.drawImage(imgTo, x, y, blockW, blockH, x, y, blockW, blockH);
+            }
+            if(progress < 1.0) requestAnimationFrame(animate); else { isAnimating = false; playIndex = toIdx; showPlaySlide(); }
+        }
+        animate();
+    }
+    function doSpiralTransition(fromIdx, toIdx) {
+        isAnimating = true; let angle = 0;
+        const imgFrom = presentationImages[fromIdx]; const imgTo = presentationImages[toIdx];
+        const maxRadius = Math.sqrt(pCanvas.width**2 + pCanvas.height**2);
+        function animate() {
+            angle += 0.15; pCtx.clearRect(0,0,pCanvas.width, pCanvas.height); pCtx.drawImage(imgFrom, 0, 0);
+            pCtx.save(); pCtx.translate(pCanvas.width/2, pCanvas.height/2); pCtx.beginPath();
+            pCtx.moveTo(0,0); pCtx.arc(0, 0, maxRadius, -Math.PI/2, -Math.PI/2 + angle); pCtx.lineTo(0,0);
+            pCtx.clip(); pCtx.translate(-pCanvas.width/2, -pCanvas.height/2); pCtx.drawImage(imgTo, 0, 0); pCtx.restore();
+            if(angle < Math.PI * 2) requestAnimationFrame(animate); else { isAnimating = false; playIndex = toIdx; showPlaySlide(); }
+        }
+        animate();
+    }
+
+    // --- CARICAMENTO, SALVATAGGIO E PDF ---
+    document.getElementById('uploadImg').onchange = (e) => {
+        if (selectedTextIndex !== null) saveTextObject();
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const scale = Math.min((mainCanvas.width * 0.5) / img.width, (mainCanvas.height * 0.5) / img.height);
+                const w = img.width * scale; const h = img.height * scale;
+                pages[currentPage].images.push({ 
+                    data: ev.target.result, x: (mainCanvas.width - w) / 2, y: (mainCanvas.height - h) / 2, 
+                    w: w, h: h, origW: img.width, origH: img.height, el: img, layer: ++layerCounter 
+                });
+                render(); saveState();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    document.getElementById('btnSaveProject').onclick = () => {
+        if (selectedTextIndex !== null) saveTextObject();
+        const data = JSON.stringify(pages.map(p => ({ 
+            texts: p.texts, images: p.images.map(i => ({ ...i, el: null })),
+            shapes: p.shapes.map(s => ({...s, imgFillEl: null})), transitionNext: p.transitionNext
+        })));
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], {type: "application/json"})); 
+        a.download = "presentazione_web.json"; a.click();
+    };
+
+    document.getElementById('loadProject').onclick = (e) => {
+        if(!confirm("Sei sicuro di voler caricare un nuovo progetto? Le modifiche correnti andranno perse.")) e.preventDefault(); 
+    };
+    
+    document.getElementById('loadProject').onchange = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => { 
+            try { 
+                let parsed = JSON.parse(ev.target.result); let maxL = 0;
+                pages = parsed.map(p => {
+                    if(p.texts) p.texts.forEach(t => { if(!t.layer) t.layer = ++maxL; else maxL = Math.max(maxL, t.layer); });
+                    if(p.images) p.images.forEach(i => { if(!i.layer) i.layer = ++maxL; else maxL = Math.max(maxL, i.layer); });
+                    if(p.shapes) p.shapes.forEach(s => { if(!s.layer) s.layer = ++maxL; else maxL = Math.max(maxL, s.layer); });
+                    return { texts: p.texts || [], images: p.images || [], shapes: p.shapes || [], transitionNext: p.transitionNext || 'none' };
+                });
+                layerCounter = maxL; currentPage = 0; restoreImages(); history = []; historyStep = -1; 
+                loadPageState(); saveState();
+            } catch(err) { alert("File JSON non valido!"); } 
+        };
+        reader.readAsText(file);
+    };
+
+    document.getElementById('btnExportPDF').onclick = async () => {
+        if (selectedTextIndex !== null) saveTextObject();
+        if (typeof window.jspdf === 'undefined') return alert("Libreria PDF mancante.");
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: mainCanvas.width > mainCanvas.height ? 'l' : 'p', unit: 'px', format: [mainCanvas.width, mainCanvas.height] });
+        const originalPage = currentPage; 
+        for (let i = 0; i < pages.length; i++) {
+            currentPage = i; loadPageState(true); await new Promise(r => setTimeout(r, 100)); 
+            if (i > 0) pdf.addPage([mainCanvas.width, mainCanvas.height]);
+            pdf.addImage(mainCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, mainCanvas.width, mainCanvas.height);
+        }
+        currentPage = originalPage; loadPageState(true); pdf.save('Presentazione.pdf');
+    };
+
+    document.getElementById('btnExportPNG').onclick = async () => {
+        if (selectedTextIndex !== null) saveTextObject();
+        let userInput = prompt(`Quale slide esportare? (1 - ${pages.length})`, currentPage + 1);
+        if (userInput === null) return; 
+        let pageNum = parseInt(userInput);
+        if (isNaN(pageNum) || pageNum < 1 || pageNum > pages.length) return alert("Numero non valido!");
+        const originalPage = currentPage; currentPage = pageNum - 1; loadPageState(true);
+        await new Promise(r => setTimeout(r, 100));
+        const a = document.createElement('a'); a.download = `Slide_${pageNum}.png`; a.href = mainCanvas.toDataURL('image/png'); a.click();
+        currentPage = originalPage; loadPageState(true);
+    };
+
+    // --- UTILS TRASCINAMENTO E CHIUSURA ---
+    function closeAll(skipSave = false) { 
+        let wasOpen = (selectedTextIndex !== null || selectedImageIndex !== null || selectedShapeIndex !== null);
+        
+        // Prima di chiudere e pulire, se il testo era aperto salviamolo definitivamente nei dati
+        if (selectedTextIndex !== null && !skipSave) {
+            updateActiveTextInPage();
+        }
+
+        hideFloatingBoxes();
+        selectedTextIndex = null; selectedImageIndex = null; selectedShapeIndex = null;
+        render(); 
+        if(wasOpen && !skipSave) saveState();
+    }
+
+    function closeModals() {
+        document.getElementById('modalOverlay').style.display = 'none';
+        document.getElementById('panel-shape').style.display = 'none';
+        document.getElementById('panel-transitions').style.display = 'none';
+    }
+
+    function setTool(t, id) { 
+        if (selectedTextIndex !== null) saveTextObject();
+        tool = t; 
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active')); 
+        document.getElementById(id).classList.add('active'); 
+        closeAll(); 
+    }
+
+    function makeDraggable(handle, box) {
+        let isDragging = false, ox, oy;
+        function startDrag(e) {
+            isDragging = true;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            ox = clientX - box.offsetLeft; oy = clientY - box.offsetTop;
+            if (e.cancelable) e.preventDefault();
+        }
+        function moveDrag(e) {
+            if (!isDragging) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            box.style.left = (clientX - ox) + 'px'; box.style.top = (clientY - oy) + 'px';
+            
+            if (box === floatingShapeBox && selectedShapeIndex !== null) {
+                pages[currentPage].shapes[selectedShapeIndex].x = parseInt(box.style.left);
+                pages[currentPage].shapes[selectedShapeIndex].y = parseInt(box.style.top);
+                render();
+            } else if (box === floatingImgBox && selectedImageIndex !== null) {
+                pages[currentPage].images[selectedImageIndex].x = parseInt(box.style.left);
+                pages[currentPage].images[selectedImageIndex].y = parseInt(box.style.top);
+                render();
+            } else if (box === floatingTextBox && selectedTextIndex !== null) {
+                pages[currentPage].texts[selectedTextIndex].x = parseInt(box.style.left);
+                pages[currentPage].texts[selectedTextIndex].y = parseInt(box.style.top);
+            }
+            if (e.cancelable) e.preventDefault();
+        }
+        function stopDrag() { isDragging = false; }
+        
+        handle.addEventListener('pointerdown', startDrag);
+        window.addEventListener('pointermove', moveDrag, { passive: false });
+        window.addEventListener('pointerup', stopDrag);
+        handle.addEventListener('touchstart', startDrag, { passive: false });
+        window.addEventListener('touchmove', moveDrag, { passive: false });
+        window.addEventListener('touchend', stopDrag);
+    }
+    
+    makeDraggable(document.getElementById('textDragHandle'), floatingTextBox);
+    makeDraggable(document.getElementById('imgDragHandle'), floatingImgBox);
+    makeDraggable(document.getElementById('shapeDragHandle'), floatingShapeBox);
+
+    document.getElementById('btnMouse').onclick = () => setTool('mouse', 'btnMouse');
+    document.getElementById('btnText').onclick = () => setTool('text', 'btnText');
+
+    setSize(); 
+</script>
+</body>
+</html>
+
