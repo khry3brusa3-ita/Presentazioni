@@ -4,7 +4,7 @@ html css js to create simple presentation
 # Creare_presentazioni
 html css js per creare presentazioni, slide e documenti
 
-# 📊 PowerPoint Web - Suite Completa & Editor Presentazioni
+# 📊 Presentazioni Web - Suite Completa & Editor Presentazioni
 
 Benvenuto nel repository di **PowerPoint Web**, un'applicazione web interattiva, leggera e potente creata per progettare slide, comporre documenti e gestire presentazioni animate direttamente dal tuo browser! Il progetto è interamente racchiuso in un unico file combinato (HTML, CSS e JavaScript), facilitando la massima portabilità senza necessità di installazioni complesse o server.
 
@@ -70,7 +70,7 @@ Progetto sviluppato per coniugare l'immediatezza della creazione di slide visive
 # Create_presentations
 html css js to create presentations, slides and documents
 
-# 📊 PowerPoint Web - Full Suite & Presentation Editor
+# 📊 Presentazioni Web - Full Suite & Presentation Editor
 
 Welcome to the repository for **PowerPoint Web**, an interactive, lightweight, and powerful web application designed to craft slides, compose documents, and manage animated presentations directly from your browser! The project is completely self-contained in a single combined file (HTML, CSS, and JavaScript), making it highly portable with no complex installation or servers required.
 
